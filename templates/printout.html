@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Print Hasil Timbang</title>
+  <style>
+    @page { size: A5; margin: 10mm; }
+    body { font-family: Arial, sans-serif; font-size: 12px; }
+    .header { text-align:center; font-weight:700; margin-bottom:8px; }
+    .small { font-size:11px; color:#333; }
+    table { width:100%; border-collapse: collapse; margin-top:8px;}
+    td, th { padding:6px; border: 1px solid #222; }
+  </style>
+</head>
+<body>
+  <div class="header">Hasil Timbang</div>
+  <div><strong>Produk:</strong> {{produk}}</div>
+  <div><strong>Wadah:</strong> {{wadah}} ({{berat_kosong}} kg)</div>
+  <div><strong>Berat Bersih:</strong> {{berat}} kg</div>
+  <div><strong>Tanggal:</strong> {{tanggal}}</div>
+  <hr>
+  <div class="small">Dicetak dari sistem Timbangan</div>
+  <script>window.print();</script>
+</body>
+</html>

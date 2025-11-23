@@ -1,0 +1,17 @@
+{
+    "db_connection": {
+        "host": "localhost",
+        "port": 5432,
+        "user": "postgres",
+        "password": "Postgre@sql1",
+        "database": "dbtimbangan"
+    },
+    "serial_port": {
+        "port": "COM3",
+        "baudrate": 9600
+    },
+    "list_serial_ports": [
+        "COM3",
+        "COM4"
+    ]
+}

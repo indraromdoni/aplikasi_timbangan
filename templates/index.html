@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aplikasi Timbangan</title>
+
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <!-- DataTables CSS -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+  <!--script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script-->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.1.3/socket.io.min.js"></script>
+  <style>
+    body { background-color: #f8f9fa; }
+    .card { border-radius: 1rem; }
+    .navbar-brand { font-weight: bold; }
+    .weight-display {
+      font-size: 3rem;
+      font-weight: bold;
+      text-align: right;
+      color: #0d6efd;
+      letter-spacing: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">📦 Aplikasi Timbangan</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link active" href="/">Timbangan</a></li>
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Data Master</a>
+            <ul class="dropdown-menu">
+              <li><a class="dropdown-item" href="/data_produk">Produk</a></li>
+              <li><a class="dropdown-item" href="/data_wadah">Wadah</a></li>
+              <li><a class="dropdown-item" href="/data_pengguna">Pengguna</a></li>
+              <li><a class="dropdown-item" href="/data_supplier">Supplier</a></li>
+            </ul>
+          </li>
+          <li class="nav-item"><a class="nav-link" href="/config">Konfigurasi</a></li>
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"><i class="bi bi-person-circle"></i></a>
+            <ul class="dropdown-menu dropdown-menu-end">
+              {% if user %}
+              <li><span class="dropdown-item-text">Halo, {{ user }}</span></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="#" onclick="logout()">Logout</a></li>
+              {% else %}
+              <li><a class="dropdown-item" data-bs-toggle="modal" data-bs-target="#myModal" href="#">Login</a></li>
+              {% endif %}
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Modal login -->
+  <div class="modal fade" id="myModal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h4 class="modal-title">LOGIN</h4>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <!-- Modal body -->
+        <div class="modal-body">
+          
+          <form id="formLogin">
+            <div class="row">
+              <div class="row">
+                <label>Nama Pengguna</label>
+                <input type="text" name="username" class="form-control" placeholder="Masukan nama pengguna">
+              </div>
+              <div class="row">
+                <label>Password</label>
+                <input type="password" name="password" class="form-control" placeholder="Masukan kata sandi">
+              </div>
+              <div class="row mt-3 gap-2 d-flex justify-content-center">
+                <div class="col">
+                  <button type="submit" class="btn btn-primary w-100">Masuk</button>
+                </div>
+                <div class="col">
+                  <button type="reset" class="btn btn-danger w-100" data-bs-dismiss="modal" id="btnLoginCancel">Batal</button>
+                </div>
+              </div>
+            </div>
+          </form>
+
+        </div>
+
+        <!-- Modal footer 
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+        </div>-->
+
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div id="myAlert" class="alert alert-success fade" role="alert" style="display:none;"></div>
+    <div class="row">
+
+      <!-- 4️⃣ Proses Penimbangan -->
+      <div id="timbang" class="col-sm-3 p-4 mb-4">
+        <h4>Proses Penimbangan</h4>
+        <form id="formTimbang">
+          <div class="row">
+            <div class="row">
+              <label>Produk</label>
+              <select id="produk" name="produk" class="form-select" required>
+                <option value="produk1">Kaleng</option>
+                <option value="produk2">PC</option>
+                <option value="produk3">Produk 3</option>
+              </select>
+            </div>
+            <div class="row">
+              <label>Wadah</label>
+              <select id="wadah" name="wadah" class="form-select" required>
+                <option value="pallet">Pallet</option>
+                <option value="jumbo">Jumbo Bag</option>
+                <option value="karung">Karung</option>
+              </select>
+            </div>
+            <div class="row">
+              <label>Berat Gross(kg)</label>
+              <div class="weight-display" id="beratDisplay">0.00</div>
+            </div>
+            <div class="row">
+              <label>Berat Tare(kg)</label>
+              <div class="weight-display" id="beratTare">0.00</div>
+            </div>
+            <div class="row">
+              <label>Berat Nett(kg)</label>
+              <div class="weight-display" id="beratNett">0.00</div>
+            </div>
+          </div>
+          <!--div class="d-flex justify-content-end gap-2 mt-3">
+            <button type="submit" class="btn btn-primary">Simpan</button>
+            <button type="button" class="btn btn-success" id="btnPrint">Print Out</button>
+          </div-->
+        </form>
+        <small class="text-muted mt-3 d-block">
+          Status koneksi: <span id="statusWebsocket">Menunggu koneksi...</span>
+        </small>
+      </div>
+
+      <!-- Riwayat Timbangan -->
+      <div id="riwayat" class="col card p-4 mb-5">
+        {% if user %}
+        <div>
+          <button type="button" class="btn btn-warning" id="btnTransaksi"><i class="bi bi-plus"></i></button>
+          <button type="submit" form="formTimbang" class="btn btn-primary">Simpan</button>
+          <button type="button" class="btn btn-success" id="btnPrint">Print Out</button>
+        </div>
+        {% else %}
+        <div data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Silakan login untuk mengaktifkan tombol.">
+          <button type="button" class="btn btn-warning" id="btnTransaksi" disabled><i class="bi bi-plus"></i></button>
+          <button type="submit" form="formTimbang" class="btn btn-primary" disabled>Simpan</button>
+          <button type="button" class="btn btn-success" id="btnPrint" disabled>Print Out</button>
+        </div>
+        {% endif %}
+        <ul class="nav nav-tabs" id="tabTransaksi">
+          <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="#home" data-bs-toggle="tab">Home</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#profile" data-bs-toggle="tab">Profile</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#contact" data-bs-toggle="tab">Contact</a>
+          </li>
+        </ul>
+        <div class="tab-content" id="kontenTransaksi">
+          <div class="tab-pane fade show active" id="home">Home content</div>
+          <div class="tab-pane fade" id="profile">Profile content</div>
+          <div class="tab-pane fade" id="contact">Contact content</div>
+        </div>
+        <div>
+          <table id="tblRiwayat" class="table table-bordered table-hover w-100"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal tambah data -->
+  <div class="modal fade" id="ModalTambahData">
+    <div class="modal-dialog">
+      <div class="modal-content">
+
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h4 class="modal-title">Tambah Data</h4>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <!-- Modal body -->
+        <div class="modal-body">
+          
+          <form id="formSupplier" class="row g-2">
+            <div class="row">
+              <label>Suplier</label>
+              <select id="supplier" name="supplier" class="form-select" required>
+                <option value="abc">PT. ABC</option>
+                <option value="def">DEF</option>
+                <option value="ghi">GHI</option>
+              </select>
+            </div>
+            <div class="row">
+              <label>No. Polisi</label>
+              <input type="text" id="nopol" name="nopol" class="form-control" placeholder="B 1234 XYZ" required>
+            </div>
+            <div class="row">
+              <label>Driver</label>
+              <input type="text" name="driver" class="form-control" placeholder="Masukan nama driver" required>
+            </div>
+            <div class="col-md-12"><button type="submit" class="btn btn-success w-100">Transaksi Baru</button></div>
+          </form>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal hapus data -->
+  <div class="modal fade" id="ModalHapusData">
+    <div class="modal-dialog">
+      <div class="modal-content">
+
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h4 class="modal-title">Hapus Data</h4>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <!-- Modal body -->
+        <div class="modal-body">
+          
+          <p>Apakah Anda yakin ingin menghapus data ini?</p>
+          <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+            <button type="button" class="btn btn-danger" id="btnHapus">Hapus</button>
+          </div>
+
+        </div>
+
+        <!-- Modal footer 
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+        </div>-->
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap + jQuery + DataTables -->
+  <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+  
+
+  <!-- Script utama -->
+  <script>
+    $(document).ready(function(){
+      var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+      var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+      })
+    });
+
+    // Inisialisasi DataTables
+    let tblRiwayat = null;
+    function get_data_timbangan(tblRiwayat, supplier=0, tgl="1970-01-01") {
+      $.ajax({
+        type: "GET",
+        url: "/api/riwayat_timbang/" + supplier + "/" + tgl,
+        success: function(response) {
+          console.log("Data riwayat timbang:", response);
+          response.forEach((item, index) => {
+            tblRiwayat.row.add([
+              index + 1,
+              item.wadah,
+              item.produk,
+              item.berat_kotor,
+              item.berat_tare,
+              item.berat_nett,
+              `<button class="btn btn-sm btn-danger" onclick="hapusData(${item.id}, '${supplier}', '${tgl}')"><i class="bi bi-trash"></button>`
+            ]).draw();
+          });
+        },
+        error: function() {
+          showAlert("Gagal mengambil riwayat timbang.");
+        }
+      });
+    }
+    $(document).ready(function () {
+      tblRiwayat = $('#tblRiwayat').DataTable({
+        columns: [{title:"No."}, {title:"Wadah"}, {title:"Produk"}, {title:"Gross"}, {title:"Tare"}, {title:"Nett"}, {title:"Aksi"}],
+        order: [[0, 'desc']],
+      });
+      get_data_timbangan(tblRiwayat);
+    });
+
+    // WebSocket
+    const socket = io(`${window.location.hostname}:5000`);
+    socket.on('connect', () => {
+      $("#statusWebsocket").text("Terkoneksi");
+      socket.emit('test', 'testing'); // Untuk testing koneksi
+    });
+    socket.on('disconnect', () => {
+      $("#statusWebsocket").text("Terputus. Mencoba koneksi ulang...");
+    });
+    socket.on('serial_data', (msg) => {
+      $("#beratDisplay").text(msg);
+      let tare = parseFloat($("#beratTare").text());
+      let gross = parseFloat(msg);
+      let nett = gross - tare;
+      $("#beratNett").text(nett.toFixed(2));
+    });
+    
+    function fetchDataMaster() {
+      $.ajax({
+        type: "GET",
+        url: "/api/master_data",
+        success: function(response) {
+          // Perbarui dropdown produk
+          let produkOptions = '';
+          produkOptions += `<option value="" disabled selected>-- Pilih Produk --</option>`;
+          response.produk.forEach(item => {
+            produkOptions += `<option value="${item.nama_produk}">${item.nama_produk}</option>`;
+          });
+          $('#produk').html(produkOptions);
+
+          // Perbarui dropdown wadah
+          let wadahOptions = '';
+          wadahOptions += `<option value="" disabled selected>-- Pilih Wadah --</option>`;
+          response.wadah.forEach(item => {
+            wadahOptions += `<option value="${item.berat_kosong}">${item.nama_wadah}</option>`;
+          });
+          $('#wadah').html(wadahOptions);
+
+          // Perbarui dropdown supplier
+          let supplierOptions = '';
+          supplierOptions += `<option value="" disabled selected>-- Pilih Supplier --</option>`;
+          response.supplier.forEach(item => {
+            supplierOptions += `<option value="${item.nama}">${item.nama}</option>`;
+          });
+          $('#supplier').html(supplierOptions);
+        },
+        error: function() {
+          showAlert("Gagal mengambil data master.");
+        }
+      });
+    }
+    fetchDataMaster();
+
+    $('#wadah').on('change', function() {
+      const selectedWadah = $(this).val();
+      $('#beratTare').text(selectedWadah)
+    });
+
+    $("#formTimbang").on("submit", function(e){
+      e.preventDefault();
+      const formData = {
+        produk: $(this).find('select[name="produk"]').val(),
+        wadah: $(this).find('select[name="wadah"] option:selected').text(),
+        supplier: $(this).find('select[name="supplier"]').val(),
+        nopol: $(this).find('input[name="nopol"]').val(),
+        driver: $(this).find('input[name="driver"]').val(),
+        berat_kotor: $("#beratDisplay").text(),
+        berat_nett: $("#beratNett").text(),
+        berat_tare: $("#beratTare").text(),
+        operator: "admin"
+      };
+      console.log(formData);
+      // Kirim data ke server via AJAX
+      $.ajax({
+        type: "POST",
+        url: "/api/riwayat_timbang",
+        data: JSON.stringify(formData),
+        contentType: "application/json",
+        success: function(response) {
+          console.log("Data berhasil disimpan:", response);
+          const date = new Date();
+          const shortDate = date.toISOString().split('T')[0]; // "YYYY-MM-DD"
+          tblRiwayat.clear().draw();
+          get_data_timbangan(tblRiwayat, formData.supplier, shortDate);
+        },
+        error: function() {
+          showAlert("Gagal menyimpan data. Silakan coba lagi.");
+        }
+      });
+    });
+
+    $("#btnPrint").on("click", () => {
+      window.print(); // Format print out A5 bisa disesuaikan via CSS
+    });
+
+    let i = 0
+    function newTab(data) {
+      //hitung selectedSupplier di tbltimbangan pada tgl hari ini kemudian hasilnya ditambah 1 dan masukkan ke variable cntTrans
+      const date = new Date();
+      const shortDate = date.toISOString().split('T')[0]; // "YYYY-MM-DD"
+      const supplier = data.supplier;
+      //id transaksi adalah tgl/nama supplier/cntTrans
+      
+      console.log(`tambah transaksi diklik ${i} kali`);
+      //kode menambah tab
+      $('#tabTransaksi').append(`
+        <li class="nav-item" id="tabTransaksi${i}">
+            <a class="nav-link" href="#new${i}" data-bs-toggle="tab">New ${i}<i class="bi bi-x" onclick="closeTab(${i})"></i></a>
+        </li>
+      `);
+      $('#kontenTransaksi').append(`
+        <div class="tab-pane fade" id="new${i}">new</div>
+      `);
+    }
+
+    function closeTab(id) {
+      console.log("close "+id);
+      $('#tabTransaksi'+id).remove();
+      $('#new'+id).remove();
+      const lastTab = $('#tabTransaksi .nav-link').last();
+      if (lastTab.length) {
+        new bootstrap.Tab(lastTab[0]).show();
+      }
+    }
+    function hapusData(id, supplier, tgl) {
+      $('#ModalHapusData').attr('data-id', id);
+      $('#ModalHapusData').attr('data-supplier', supplier);
+      $('#ModalHapusData p').html(`Apakah Anda yakin ingin menghapus data <span class="fw-bold text-danger">${supplier}</span>?`);
+      $('#ModalHapusData').modal('show');
+    }
+    
+    $('#btnHapus').on('click', function() {
+      const id = $('#ModalHapusData').attr('data-id');
+      const supplier = $('#ModalHapusData').attr('data-supplier');
+      $.ajax({
+        type: "DELETE",
+        url: `/api/riwayat_timbang/${id}`,
+        success: function(response) {
+          showAlert("Data berhasil dihapus.");
+          const date = new Date();
+          const shortDate = date.toISOString().split('T')[0]; // "YYYY-MM-DD"
+          tblRiwayat.clear().draw();
+          get_data_timbangan(tblRiwayat, supplier, shortDate);
+        },
+        error: function() {
+          showAlert("Gagal menghapus data.");
+        }
+      });
+      $('#ModalHapusData').modal('hide');
+    });
+
+    $("#formLogin").on("submit", function(e){
+      e.preventDefault();
+      const formData = {
+        username: $(this).find('input[name="username"]').val(),
+        password: $(this).find('input[name="password"]').val()
+      };
+      console.log(formData)
+      $.ajax({
+        type: "POST",
+        url: "/api/login",
+        data: JSON.stringify(formData),
+        contentType: "application/json",
+        success: function(response) {
+          showAlert(`Selamat datang ${formData.username}!`);
+          $('#myModal').modal('hide');
+          setTimeout(() => {
+            location.reload();
+          }, 1000);
+        },
+        error: function() {
+          showAlert("Login gagal. Periksa kembali kredensial Anda.");
+        }
+      });
+    });
+
+    function logout() {
+      $.ajax({
+        type: "POST",
+        url: "/api/logout",
+        success: function(response) {
+          showAlert("Anda telah logout.");
+          setTimeout(() => {
+            location.reload();
+          }, 1000);
+        },
+        error: function() {
+          showAlert("Logout gagal.");
+        }
+      });
+    }
+
+    function showAlert(message, type = 'success') {
+      //console.log('Showing alert:', message, 'Type:', type);
+      const alertDiv = $('#myAlert');
+
+      alertDiv
+        .removeClass('alert-success alert-danger alert-warning alert-info')
+        .addClass(`alert-${type} fade`)  // pastikan ada fade
+        .text(message);
+
+      alertDiv.show();
+
+      // fade-in
+      setTimeout(() => {
+        alertDiv.addClass('show');
+      }, 30);
+
+      // fade-out + hide
+      setTimeout(() => {
+        alertDiv.removeClass('show');
+        setTimeout(() => alertDiv.hide(), 300); // tunggu animasi 300ms
+      }, 3000);
+    }
+
+    //membuat transaksi baru
+    function newTransaction(data) {
+      $.ajax({
+        type: "POST",
+        url: "/api/session_data/transaction/",
+        data: JSON.stringify(data),
+        contentType: "application/json",
+        success: function(response) {
+          newTab(data);
+        },
+        error: function() {
+          showAlert("Transaksi gagal ditambah.");
+        }
+      });
+    }
+  </script>
+
+</body>
+</html>

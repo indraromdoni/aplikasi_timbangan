@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aplikasi Timbangan</title>
+
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <!-- DataTables CSS -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+
+  <style>
+    body { background-color: #f8f9fa; }
+    .card { border-radius: 1rem; }
+    .navbar-brand { font-weight: bold; }
+    .weight-display {
+      font-size: 3rem;
+      font-weight: bold;
+      text-align: right;
+      color: #0d6efd;
+      letter-spacing: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">📦 Aplikasi Timbangan</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="/">Timbangan</a></li>
+          <li class="nav-item dropdown">
+            <a class="nav-link active dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Data Master</a>
+            <ul class="dropdown-menu">
+              <li><a class="dropdown-item" href="/data_produk">Produk</a></li>
+              <li><a class="dropdown-item active" href="/data_wadah">Wadah</a></li>
+              <li><a class="dropdown-item" href="/data_pengguna">Pengguna</a></li>
+              <li><a class="dropdown-item" href="/data_supplier">Supplier</a></li>
+            </ul>
+          </li>
+          <li class="nav-item"><a class="nav-link" href="/config">Konfigurasi</a></li>
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"><i class="bi bi-person-circle"></i></a>
+            <ul class="dropdown-menu dropdown-menu-end">
+              {% if user %}
+              <li><span class="dropdown-item-text">Halo, {{ user }}</span></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="#" onclick="logout()">Logout</a></li>
+              {% else %}
+              <li><a class="dropdown-item" data-bs-toggle="modal" data-bs-target="#myModal" href="#">Login</a></li>
+              {% endif %}
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Modal login -->
+  <div class="modal fade" id="myModal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h4 class="modal-title">LOGIN</h4>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <!-- Modal body -->
+        <div class="modal-body">
+          
+          <form id="formLogin">
+            <div class="row">
+              <div class="row">
+                <label>Nama Pengguna</label>
+                <input type="text" name="username" class="form-control" placeholder="Masukan nama pengguna">
+              </div>
+              <div class="row">
+                <label>Password</label>
+                <input type="password" name="password" class="form-control" placeholder="Masukan kata sandi">
+              </div>
+              <div class="row mt-3 gap-2 d-flex justify-content-center">
+                <div class="col">
+                  <button type="submit" class="btn btn-primary w-100">Masuk</button>
+                </div>
+                <div class="col">
+                  <button type="reset" class="btn btn-danger w-100" data-bs-dismiss="modal" id="btnLoginCancel">Batal</button>
+                </div>
+              </div>
+            </div>
+          </form>
+
+        </div>
+
+        <!-- Modal footer 
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+        </div>-->
+
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div id="myAlert" class="alert alert-success fade" role="alert" style="display:none;"></div>
+
+    <!-- 3️⃣ Form Wadah -->
+    <div id="wadah" class="card p-4 mb-4">
+      <h4>Data Wadah</h4>
+      {% if role == 'admin' %}
+      <div class="mb-3">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#ModalTambahData"><i class="bi bi-plus"></i>Tambah Data</button>
+      </div>
+      {% endif %}
+      <table id="tblWadah" class="table table-striped table-bordered w-100"></table>
+    </div>
+
+  </div>
+
+  <!-- Modal tambah data -->
+  <div class="modal fade" id="ModalTambahData">
+    <div class="modal-dialog">
+      <div class="modal-content">
+
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h4 class="modal-title">Tambah Data</h4>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <!-- Modal body -->
+        <div class="modal-body">
+          
+          <form id="formWadah" class="row g-2">
+            <label for="nama_wadah">Nama Wadah</label>
+            <div class="col-md-6"><input type="text" class="form-control" name="nama_wadah" placeholder="Nama Wadah" required></div>
+            <label for="berat_kosong">Berat Kosong</label>
+            <div class="col-md-6"><input type="number" class="form-control" name="berat_kosong" step="0.01" placeholder="Berat Kosong (kg)" required></div>
+            <div class="col-md-12"><button type="submit" class="btn btn-success w-100">Simpan</button></div>
+          </form>
+
+        </div>
+
+        <!-- Modal footer 
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+        </div>-->
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal edit data -->
+  <div class="modal fade" id="ModalEditData">
+    <div class="modal-dialog">
+      <div class="modal-content">
+
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h4 class="modal-title">Edit Data</h4>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <!-- Modal body -->
+        <div class="modal-body">
+          
+          <form id="formEdit" class="row g-2">
+            <label for="nama_wadah">Nama Wadah</label>
+            <div class="col-md-6"><input type="text" class="form-control" name="nama_wadah" placeholder="Nama Wadah" required></div>
+            <label for="berat_kosong">Berat Kosong</label>
+            <div class="col-md-6"><input type="number" class="form-control" name="berat_kosong" step="0.01" placeholder="Berat Kosong (kg)" required></div>
+            <div class="col-md-12"><button type="submit" class="btn btn-success w-100">Simpan</button></div>
+          </form>
+
+        </div>
+
+        <!-- Modal footer 
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+        </div>-->
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal hapus data -->
+  <div class="modal fade" id="ModalHapusData">
+    <div class="modal-dialog">
+      <div class="modal-content">
+
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h4 class="modal-title">Hapus Data</h4>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <!-- Modal body -->
+        <div class="modal-body">
+          
+          <p>Apakah Anda yakin ingin menghapus data ini?</p>
+          <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+            <button type="button" class="btn btn-danger">Hapus</button>
+          </div>
+
+        </div>
+
+        <!-- Modal footer 
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+        </div>-->
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap + jQuery + DataTables -->
+  <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+  <!-- Script utama -->
+  <script>
+    const role = "{{ role }}";
+    isAdmin = (role === "admin")
+    // Inisialisasi DataTables
+    let tblWadah = null;
+    $(document).ready(function () {
+      tblWadah = $('#tblWadah').DataTable({
+        columns: [
+          { title: "No." },
+          { title: "Nama Wadah" },
+          { title: "Berat Kosong (kg)" },
+          { title: "Aksi", visible: isAdmin }
+        ]
+      });
+
+      fetch("/api/wadah")
+      .then(res => res.json())
+      .then(data => {
+          data.forEach((item, index) => {
+              tblWadah.row.add([
+                  index + 1,
+                  item.nama_wadah,
+                  item.berat_kosong,
+                  `<button class="btn btn-sm btn-warning" onclick="editData('${item.id}')"><i class="bi bi-pencil"></i></button>
+                  <button class="btn btn-sm btn-danger" onclick="hapusData('${item.id}', '${item.nama_wadah}')"><i class="bi bi-trash"></i></button>`
+              ]);
+          });
+          tblWadah.draw();
+      });
+    });
+
+    $('#formWadah').on('submit', function(e) {
+      e.preventDefault();
+      const formData = {
+          nama_wadah: $(this).find('input[name="nama_wadah"]').val(),
+          berat_kosong: parseFloat($(this).find('input[name="berat_kosong"]').val())
+      };
+      fetch('/api/wadah', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+      })
+      .then(res => res.json())
+      .then(data => {
+        if(data.status !== 'success') {
+          showAlert('Gagal menambahkan data wadah.', 'danger');
+        } else {
+          let modal = $('#ModalTambahData');
+          modal.modal('hide');
+          tblWadah.row.add([
+              tblWadah.rows().count() + 1,
+              formData.nama_wadah,
+              formData.berat_kosong,
+              `<button class="btn btn-sm btn-warning" onclick="editData('${data.id}')"><i class="bi bi-pencil"></i></button>
+              <button class="btn btn-sm btn-danger" onclick="hapusData('${data.id}', '${formData.nama_wadah}')"><i class="bi bi-trash"></i></button>`
+          ]).draw();
+          showAlert('Data wadah berhasil ditambahkan.', 'success');
+        }
+      });
+    });
+
+    function editData(id) {
+      fetch(`/api/wadah/${id}`)
+      .then(res => res.json())
+      .then(data => {
+          $('#ModalEditData').find('input[name="nama_wadah"]').val(data.nama_wadah);
+          $('#ModalEditData').find('input[name="berat_kosong"]').val(data.berat_kosong);
+          $('#ModalEditData').attr('data-id', id);
+          $('#ModalEditData').modal('show');
+      });
+    }
+
+    function hapusData(id, nama) {
+      $('#ModalHapusData').attr('data-id', id);
+      $('#ModalHapusData p').html(`Apakah Anda yakin ingin menghapus data wadah <span class="fw-bold text-danger">${nama}</span>?`);
+      $('#ModalHapusData').modal('show');
+    }
+
+    $('#formEdit').on('submit', function(e) {
+      e.preventDefault();
+      const id = $('#ModalEditData').attr('data-id');
+      const formData = {
+          nama_wadah: $(this).find('input[name="nama_wadah"]').val(),
+          berat_kosong: parseFloat($(this).find('input[name="berat_kosong"]').val())
+      };
+      fetch(`/api/wadah/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+      })
+      .then(res => res.json())
+      .then(data => {
+        if(data.status !== 'success') {
+          showAlert('Gagal mengupdate data wadah.', 'danger');
+        } else {
+          let modal = $('#ModalEditData');
+          modal.modal('hide');
+          tblWadah.clear().draw();
+          fetch("/api/wadah")
+          .then(res => res.json())
+          .then(data => {
+              data.forEach((item, index) => {
+                  tblWadah.row.add([
+                      index + 1,
+                      item.nama_wadah,
+                      item.berat_kosong,
+                      `<button class="btn btn-sm btn-warning" onclick="editData('${item.id}')"><i class="bi bi-pencil"></i></button>
+                      <button class="btn btn-sm btn-danger" onclick="hapusData('${item.id}', '${item.nama_wadah}')"><i class="bi bi-trash"></i></button>`
+                  ]);
+              });
+              tblWadah.draw();
+          });
+          showAlert('Data wadah berhasil diupdate.', 'success');
+        }
+      });
+    });
+
+    $('#ModalHapusData .btn-danger').on('click', function() {
+      const id = $('#ModalHapusData').attr('data-id');
+      fetch(`/api/wadah/${id}`, {
+          method: 'DELETE'
+      })
+      .then(res => res.json())
+      .then(data => {
+        if(data.status !== 'success') {
+          showAlert('Gagal menghapus data wadah.', 'danger');
+        } else {
+          let modal = $('#ModalHapusData');
+          modal.modal('hide');
+          tblWadah.clear().draw();
+          fetch("/api/wadah")
+          .then(res => res.json())
+          .then(data => {
+              data.forEach((item, index) => {
+                  tblWadah.row.add([
+                      index + 1,
+                      item.nama_wadah,
+                      item.berat_kosong,
+                      `<button class="btn btn-sm btn-warning" onclick="editData('${item.id}')"><i class="bi bi-pencil"></i></button>
+                      <button class="btn btn-sm btn-danger" onclick="hapusData('${item.id}', '${item.nama_wadah}')"><i class="bi bi-trash"></i></button>`
+                  ]);
+              });
+              tblWadah.draw();
+          });
+          showAlert('Data wadah berhasil dihapus.', 'success');
+        }
+      });
+    });
+
+    $("#formLogin").on("submit", function(e){
+      e.preventDefault();
+      const formData = {
+        username: $(this).find('input[name="username"]').val(),
+        password: $(this).find('input[name="password"]').val()
+      };
+      console.log(formData)
+      $.ajax({
+        type: "POST",
+        url: "/api/login",
+        data: JSON.stringify(formData),
+        contentType: "application/json",
+        success: function(response) {
+          showAlert("Login berhasil!", 'success');
+          setTimeout(() => {
+            location.reload()
+          }, 1000);
+          $('#myModal').modal('hide');
+        },
+        error: function() {
+          showAlert("Login gagal. Periksa kembali kredensial Anda.", 'danger');
+        }
+      });
+    });
+
+    function logout() {
+      $.ajax({
+        type: "GET",
+        url: "/api/logout",
+        success: function(response) {
+          showAlert("Anda telah logout.");
+          setTimeout(() => {
+            location.reload();
+          }, 1000);
+        },
+        error: function() {
+          showAlert("Logout gagal.");
+        }
+      });
+    }
+
+    function showAlert(message, type = 'success') {
+      //console.log('Showing alert:', message, 'Type:', type);
+      const alertDiv = $('#myAlert');
+
+      alertDiv
+        .removeClass('alert-success alert-danger alert-warning alert-info')
+        .addClass(`alert-${type} fade`)  // pastikan ada fade
+        .text(message);
+
+      alertDiv.show();
+
+      // fade-in
+      setTimeout(() => {
+        alertDiv.addClass('show');
+      }, 30);
+
+      // fade-out + hide
+      setTimeout(() => {
+        alertDiv.removeClass('show');
+        setTimeout(() => alertDiv.hide(), 300); // tunggu animasi 300ms
+      }, 3000);
+    }
+  </script>
+
+</body>
+</html>
