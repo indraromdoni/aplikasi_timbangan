@@ -163,35 +163,21 @@
         {% if user %}
         <div>
           <button type="button" class="btn btn-warning" id="btnTransaksi"><i class="bi bi-plus"></i></button>
-          <button type="submit" form="formTimbang" class="btn btn-primary">Simpan</button>
-          <button type="button" class="btn btn-success" id="btnPrint">Print Out</button>
         </div>
         {% else %}
         <div data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Silakan login untuk mengaktifkan tombol.">
           <button type="button" class="btn btn-warning" id="btnTransaksi" disabled><i class="bi bi-plus"></i></button>
-          <button type="submit" form="formTimbang" class="btn btn-primary" disabled>Simpan</button>
-          <button type="button" class="btn btn-success" id="btnPrint" disabled>Print Out</button>
         </div>
         {% endif %}
-        <ul class="nav nav-tabs" id="tabTransaksi">
-          <li class="nav-item">
-            <a class="nav-link active" aria-current="page" href="#home" data-bs-toggle="tab">Home</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="#profile" data-bs-toggle="tab">Profile</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="#contact" data-bs-toggle="tab">Contact</a>
-          </li>
+        <ul class="nav nav-tabs" id="transaksiTabs">
+          <!--Tempat tab-->
         </ul>
-        <div class="tab-content" id="kontenTransaksi">
-          <div class="tab-pane fade show active" id="home">Home content</div>
-          <div class="tab-pane fade" id="profile">Profile content</div>
-          <div class="tab-pane fade" id="contact">Contact content</div>
+        <div class="tab-content" id="transaksiContent">
+          <!--Tempat konten tab-->
         </div>
-        <div>
+        <!--div>
           <table id="tblRiwayat" class="table table-bordered table-hover w-100"></table>
-        </div>
+        </div-->
       </div>
     </div>
   </div>
@@ -203,14 +189,14 @@
 
         <!-- Modal Header -->
         <div class="modal-header">
-          <h4 class="modal-title">Tambah Data</h4>
+          <h4 class="modal-title">Transaksi Baru</h4>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
 
         <!-- Modal body -->
         <div class="modal-body">
           
-          <form id="formSupplier" class="row g-2">
+          <form id="formTransaksi" class="row g-2">
             <div class="row">
               <label>Suplier</label>
               <select id="supplier" name="supplier" class="form-select" required>
@@ -227,13 +213,34 @@
               <label>Driver</label>
               <input type="text" name="driver" class="form-control" placeholder="Masukan nama driver" required>
             </div>
-            <div class="col-md-12"><button type="submit" class="btn btn-success w-100">Transaksi Baru</button></div>
+            <div class="col-md-12"><button type="button" id="btnSubmitTransaksi" class="btn btn-success w-100">Simpan</button></div>
           </form>
 
         </div>
+
+        <!-- Modal footer 
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+        </div>-->
+
       </div>
     </div>
   </div>
+
+  <template id="tab-template">
+    <div class="tab-pane p-3" style="display: none;">
+      <div class="row mb-2">
+        <div class="col-md-4"><b>Supplier:</b><br> <span class="t-supplier"></span></div>
+        <div class="col-md-2"><b>Nopol:</b><br> <span class="t-nopol"></span></div>
+        <div class="col-md-2"><b>Driver:</b><br> <span class="t-driver"></span></div>
+        <div class="col-md-4 text-end">
+          <button class="btn btn-sm btn-success btn-add-weight">Tambah Berat</button>
+          <button class="btn btn-sm btn-danger btn-close-trans">Close</button>
+        </div>
+      </div>
+      <table class="table table-striped" width="100%" id="table-local"></table>
+    </div>
+  </template>
 
   <!-- Modal hapus data -->
   <div class="modal fade" id="ModalHapusData">
@@ -280,40 +287,7 @@
       var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl)
       })
-    });
-
-    // Inisialisasi DataTables
-    let tblRiwayat = null;
-    function get_data_timbangan(tblRiwayat, supplier=0, tgl="1970-01-01") {
-      $.ajax({
-        type: "GET",
-        url: "/api/riwayat_timbang/" + supplier + "/" + tgl,
-        success: function(response) {
-          console.log("Data riwayat timbang:", response);
-          response.forEach((item, index) => {
-            tblRiwayat.row.add([
-              index + 1,
-              item.wadah,
-              item.produk,
-              item.berat_kotor,
-              item.berat_tare,
-              item.berat_nett,
-              `<button class="btn btn-sm btn-danger" onclick="hapusData(${item.id}, '${supplier}', '${tgl}')"><i class="bi bi-trash"></button>`
-            ]).draw();
-          });
-        },
-        error: function() {
-          showAlert("Gagal mengambil riwayat timbang.");
-        }
-      });
-    }
-    $(document).ready(function () {
-      tblRiwayat = $('#tblRiwayat').DataTable({
-        columns: [{title:"No."}, {title:"Wadah"}, {title:"Produk"}, {title:"Gross"}, {title:"Tare"}, {title:"Nett"}, {title:"Aksi"}],
-        order: [[0, 'desc']],
-      });
-      get_data_timbangan(tblRiwayat);
-    });
+    });    
 
     // WebSocket
     const socket = io(`${window.location.hostname}:5000`);
@@ -373,61 +347,163 @@
       $('#beratTare').text(selectedWadah)
     });
 
-    $("#formTimbang").on("submit", function(e){
-      e.preventDefault();
-      const formData = {
-        produk: $(this).find('select[name="produk"]').val(),
-        wadah: $(this).find('select[name="wadah"] option:selected').text(),
-        supplier: $(this).find('select[name="supplier"]').val(),
-        nopol: $(this).find('input[name="nopol"]').val(),
-        driver: $(this).find('input[name="driver"]').val(),
-        berat_kotor: $("#beratDisplay").text(),
-        berat_nett: $("#beratNett").text(),
-        berat_tare: $("#beratTare").text(),
-        operator: "admin"
-      };
-      console.log(formData);
-      // Kirim data ke server via AJAX
-      $.ajax({
-        type: "POST",
-        url: "/api/riwayat_timbang",
-        data: JSON.stringify(formData),
-        contentType: "application/json",
-        success: function(response) {
-          console.log("Data berhasil disimpan:", response);
-          const date = new Date();
-          const shortDate = date.toISOString().split('T')[0]; // "YYYY-MM-DD"
-          tblRiwayat.clear().draw();
-          get_data_timbangan(tblRiwayat, formData.supplier, shortDate);
-        },
-        error: function() {
-          showAlert("Gagal menyimpan data. Silakan coba lagi.");
+    const modal = new bootstrap.Modal(document.getElementById('ModalTambahData'));
+    $('#btnTransaksi').on('click', () => { $('#formTransaksi')[0].reset(); modal.show(); });
+    $('#btnSubmitTransaksi').on('click', () => {
+      const f = $('#formTransaksi').serializeArray();
+      const payload = {};
+      f.forEach(i => payload[i.name] = i.value);
+      fetch('/api/transaksi', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+        .then(r => r.json()).then(x => {
+          if (x.status == 'success') {
+            addTab(x, true); // x is object; but our api returns keys at top-level; we will refetch
+            modal.hide();
+            fetchTransaksiAndRender();
+          } else {
+            alert('Gagal buat transaksi: ' + (x.error || JSON.stringify(x)));
+          }
+        });
+    });
+
+    function fetchTransaksiAndRender() {
+      fetch('/api/transaksi')
+        .then(r => r.json())
+        .then(list => {
+          $('#transaksiTabs').empty();
+          $('#transaksiContent').empty();
+          // render each transaksi
+          list.forEach(t => addTab(t, false));
+          if (list.length) openTab(list[0].id_transaksi);
+        });
+    }
+    const user = "{{ user }}";
+    if(user != "None") {
+      fetchTransaksiAndRender();
+    }
+
+    function get_alat_ukur() {
+      const produk = $('#produk').val();
+      const wadah = $('#wadah').val();
+      const w_kotor = $('#beratDisplay').text();
+      const w_tare = $('#beratTare').text();
+      const w_nett = $('#beratNett').text();
+      const data = {produk, wadah, w_kotor, w_tare, w_nett};
+      console.log(data)
+      return data
+    }
+
+    function addTab(t, makeActive=true) {
+      const tabId = 'tab-' + t.id_transaksi;
+      const contentId = 'content-' + t.id_transaksi;
+
+      const $li = $(`<li class="nav-item"><a class="nav-link" id="${tabId}" href="#">${t.supplier}</a></li>`);
+      $li.find('a').on('click', (e) => { e.preventDefault(); openTab(t.id_transaksi); });
+      $('#transaksiTabs').append($li);
+
+      const tpl = document.getElementById('tab-template').content.cloneNode(true);
+      const $content = $(tpl).children().first();
+      $content.attr('id', contentId);
+      $content.find('.t-supplier').text(t.supplier || '-');
+      $content.find('.t-nopol').text(t.nopol || '-');
+      $content.find('.t-driver').text(t.driver || '-');
+
+      const tableId = 'tbl-' + t.id_transaksi;
+      $content.find('#table-local').attr('id', tableId);
+
+      $content.find('.btn-add-weight').on('click', function() {
+        const {produk, wadah, w_kotor, w_tare, w_nett} = get_alat_ukur();
+        saveWeightToTransaksi(
+          t.id_transaksi, 
+          { 
+            produk: produk, 
+            wadah: wadah, 
+            berat_kotor: parseFloat(w_kotor), 
+            berat_tare: parseFloat(w_tare), 
+            berat_nett: parseFloat(w_nett), 
+            operator: '{{ user }}', 
+            supplier: t.supplier, 
+            driver: t.driver, 
+            nopol: t.nopol
+          })
+      });
+      $content.find('.btn-close-trans').on('click', () => onCloseTrans(t.id_transaksi));
+
+      $('#transaksiContent').append($content);
+
+      $(`#${tableId}`).DataTable({
+        ajax: { url: `/api/transaksi/${t.id_transaksi}/timbang`, dataSrc: '' },
+        columns: [
+          { data: 'waktu', title: 'Waktu' },
+          { data: 'wadah', title: 'Wadah' },
+          { data: 'produk', title: 'Produk' },
+          { data: 'berat_kotor', title: 'Berat Kotor' },
+          { data: 'berat_tare', title: 'Berat Tare' },
+          { data: 'berat_nett', title: 'Berat Nett' },
+          { data: 'remarks', title: 'Keterangan',
+            render: function(data, type, row) {
+              return `<input type="text" class="form-control remarks-input" data-id="${row.id}" data-transaksi="${t.id_transaksi}" value="${data || ''}">`;}
+          }
+        ]
+      });
+
+      if (makeActive) openTab(t.id_transaksi);
+    }
+
+    $(document).on('change', '.remarks-input', function() {
+        const id = $(this).data('id');
+        const id_transaksi = $(this).data('transaksi');
+        const value = $(this).val();
+
+        fetch(`/api/timbang/${id}/remarks`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ remarks: value })
+        })
+        .then(res => res.json())
+        .then(result => {
+            console.log("Updated:", result);
+            $(`#tbl-${id_transaksi}`).DataTable().ajax.reload();
+        })
+        .catch(err => console.error(err));
+    });
+
+    function openTab(id) {
+      $('#transaksiContent').children().hide();
+      $('#transaksiTabs').find('.nav-link').removeClass('active');
+      $('#content-' + id).show();
+      $('#tab-' + id).addClass('active');
+      activeTransaksi = id;
+      const t = $(`#tbl-${id}`).DataTable();
+      if (t) t.ajax.reload();
+    }
+
+    function onAddWeight(id, payload) {
+      const produk = $('#produk').val();
+      const wadah = $('#wadah').val();
+      const w_kotor = $('#beratDisplay').text();
+      const w_tare = $('#beratTare').text();
+      const w_nett = $('#beratNett').text();
+      saveWeightToTransaksi(t.id_transaksi, { produk: produk, wadah: wadah, berat_kotor: parseFloat(w_kotor), berat_tare: parseFloat(w_tare), berat_nett: parseFloat(w_nett), operator: '{{ user }}', supplier: t.supplier, driver: t.driver, nopol: t.nopol });
+    }
+
+    function onCloseTrans(id) {
+      if (!confirm('Tutup transaksi ini?')) return;
+      fetch(`/api/transaksi/${id}/close`, { method: 'POST' })
+        .then(r => r.json()).then(x => { if (x.status == 'success') fetchTransaksiAndRender(); });
+    }
+
+    function saveWeightToTransaksi(id_transaksi, payload) {
+      fetch(`/api/transaksi/${id_transaksi}/timbang`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      }).then(r => r.json()).then(x => {
+        if (x.status == 'success') {
+          $(`#tbl-${id_transaksi}`).DataTable().ajax.reload();
+        } else {
+          alert('Gagal simpan: ' + (x.error || JSON.stringify(x)));
         }
       });
-    });
-
-    $("#btnPrint").on("click", () => {
-      window.print(); // Format print out A5 bisa disesuaikan via CSS
-    });
-
-    let i = 0
-    function newTab(data) {
-      //hitung selectedSupplier di tbltimbangan pada tgl hari ini kemudian hasilnya ditambah 1 dan masukkan ke variable cntTrans
-      const date = new Date();
-      const shortDate = date.toISOString().split('T')[0]; // "YYYY-MM-DD"
-      const supplier = data.supplier;
-      //id transaksi adalah tgl/nama supplier/cntTrans
-      
-      console.log(`tambah transaksi diklik ${i} kali`);
-      //kode menambah tab
-      $('#tabTransaksi').append(`
-        <li class="nav-item" id="tabTransaksi${i}">
-            <a class="nav-link" href="#new${i}" data-bs-toggle="tab">New ${i}<i class="bi bi-x" onclick="closeTab(${i})"></i></a>
-        </li>
-      `);
-      $('#kontenTransaksi').append(`
-        <div class="tab-pane fade" id="new${i}">new</div>
-      `);
     }
 
     function closeTab(id) {
@@ -472,7 +548,7 @@
         username: $(this).find('input[name="username"]').val(),
         password: $(this).find('input[name="password"]').val()
       };
-      console.log(formData)
+      //console.log(formData)
       $.ajax({
         type: "POST",
         url: "/api/login",
@@ -528,22 +604,6 @@
         alertDiv.removeClass('show');
         setTimeout(() => alertDiv.hide(), 300); // tunggu animasi 300ms
       }, 3000);
-    }
-
-    //membuat transaksi baru
-    function newTransaction(data) {
-      $.ajax({
-        type: "POST",
-        url: "/api/session_data/transaction/",
-        data: JSON.stringify(data),
-        contentType: "application/json",
-        success: function(response) {
-          newTab(data);
-        },
-        error: function() {
-          showAlert("Transaksi gagal ditambah.");
-        }
-      });
     }
   </script>
 

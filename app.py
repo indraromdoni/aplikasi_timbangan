@@ -6,6 +6,9 @@ import threading
 import json
 import psycopg2
 import eventlet
+import datetime
+import time
+import uuid
 
 _exit = False
 _config = {}
@@ -104,8 +107,7 @@ def restart_serial_thread():
 def home():
     user = session.get('username')
     role = session.get('role')
-    trans = session.get('id_transaksi')
-    return render_template('index.html', user=user, role=role, trans=trans)
+    return render_template('index.html', user=user, role=role)
 
 @app.route('/data_pengguna')
 def operator():
@@ -170,7 +172,6 @@ def api_login():
     if ret and len(ret) > 0:
         session['username'] = username
         session['role'] = ret[0][2]
-        session['id_transaksi'] = 0
         return jsonify({'status': 'success'})
     else:
         return jsonify({'status': 'failure'}), 401
@@ -609,14 +610,237 @@ def api_get_master_data():
         'supplier': supplier
     })
 
-@app.route('/api/riwayat_timbang/<supplier>/<tgl>', methods=['GET'])
-def api_get_riwayat_timbang(supplier, tgl):
+@app.route('/api/transaksi', methods=['POST'])
+def api_create_transaksi():
+    data = request.json or {}
+    # simple id: date + short uuid
+    id_transaksi = f"{datetime.datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6]}"
+    supplier = data.get('supplier')
+    nopol = data.get('nopol')
+    driver = data.get('driver')
+    # Insert into table transaksi (create table DDL below)
     conn = db_connect()
     if conn is None:
         return jsonify({'status': 'failure'}), 500
     cur = conn.cursor()
-    cmd = "SELECT * FROM tbltimbangan WHERE supplier=%s AND tanggal=%s ORDER BY id ASC"
-    values = (supplier, tgl)
+    try:
+        cmd = """INSERT INTO transaksi (id_transaksi, supplier, nopol, driver, status, created_at)
+                 VALUES (%s, %s, %s, %s, %s, NOW())"""
+        cur.execute(cmd, (id_transaksi, supplier, nopol, driver, 'active'))
+        conn.commit()
+        return jsonify({'status': 'success', 'id_transaksi': id_transaksi, 'supplier': supplier, 'nopol': nopol, 'driver': driver})
+    except Exception as e:
+        print("Error creating transaksi:", e)
+        conn.rollback()
+        return jsonify({'status': 'failure', 'error': str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+@app.route('/api/transaksi', methods=['GET'])
+def api_list_transaksi():
+    conn = db_connect()
+    if conn is None:
+        return jsonify([]), 200
+    cur = conn.cursor()
+    try:
+        cmd = "SELECT id_transaksi, supplier, nopol, driver, status, created_at FROM transaksi WHERE status = 'active' ORDER BY created_at DESC"
+        cur.execute(cmd)
+        rows = cur.fetchall()
+        out = []
+        for r in rows:
+            out.append({
+                'id_transaksi': r[0],
+                'supplier': r[1],
+                'nopol': r[2],
+                'driver': r[3],
+                'status': r[4],
+                'created_at': r[5].isoformat() if r[5] else None
+            })
+        return jsonify(out)
+    except Exception as e:
+        print("Error listing transaksi:", e)
+        return jsonify([]), 200
+    finally:
+        cur.close()
+        conn.close()
+
+# Get transaksi by id
+@app.route('/api/transaksi/<id_transaksi>', methods=['GET'])
+def api_get_transaksi(id_transaksi):
+    conn = db_connect()
+    if conn is None:
+        return jsonify({'status': 'failure'}), 500
+    cur = conn.cursor()
+    try:
+        cmd = "SELECT id_transaksi, supplier, nopol, driver, status, created_at FROM transaksi WHERE id_transaksi=%s"
+        cur.execute(cmd, (id_transaksi,))
+        row = cur.fetchone()
+        if not row:
+            return jsonify({'status': 'not found'}), 404
+        t = {
+            'id_transaksi': row[0],
+            'supplier': row[1],
+            'nopol': row[2],
+            'driver': row[3],
+            'status': row[4],
+            'created_at': row[5].isoformat() if row[5] else None
+        }
+        return jsonify(t)
+    except Exception as e:
+        print("Error get transaksi:", e)
+        return jsonify({'status': 'failure'}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+# Add riwayat timbang to a specific transaksi
+@app.route('/api/transaksi/<id_transaksi>/timbang', methods=['POST'])
+def api_add_timbang_to_transaksi(id_transaksi):
+    data = request.json or {}
+    # Expect keys: wadah, produk, berat_kotor, berat_tare, berat_nett, operator, keterangan (optional)
+    conn = db_connect()
+    if conn is None:
+        return jsonify({'status': 'failure'}), 500
+    cur = conn.cursor()
+    try:
+        # ensure transaksi exists
+        cur.execute("SELECT 1 FROM transaksi WHERE id_transaksi=%s", (id_transaksi,))
+        if cur.fetchone() is None:
+            return jsonify({'status': 'transaksi_not_found'}), 404
+
+        cmd = """INSERT INTO tbltimbangan 
+                 (id_transaksi, nama_wadah, nama_produk, berat_kotor, berat_tare, berat_nett, operator, supplier, driver, nopol, remarks)
+                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 RETURNING id"""
+        values = (
+            id_transaksi,
+            data.get('wadah'),
+            data.get('produk'),
+            data.get('berat_kotor'),
+            data.get('berat_tare'),
+            data.get('berat_nett'),
+            data.get('operator'),
+            data.get('supplier'),
+            data.get('driver'),
+            data.get('nopol'),
+            data.get('keterangan')
+        )
+        cur.execute(cmd, values)
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        return jsonify({'status': 'success', 'id': new_id})
+    except Exception as e:
+        print("Error inserting riwayat for transaksi:", e)
+        conn.rollback()
+        return jsonify({'status': 'failure', 'error': str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+# Get riwayat timbang per transaksi (for DataTables)
+@app.route('/api/transaksi/<id_transaksi>/timbang', methods=['GET'])
+def api_get_timbang_by_transaksi(id_transaksi):
+    conn = db_connect()
+    if conn is None:
+        return jsonify([]), 200
+    cur = conn.cursor()
+    try:
+        cmd = """SELECT id, tanggal, waktu, nama_wadah, nama_produk, berat_kotor, berat_tare, berat_nett, operator, supplier, driver, nopol, id_transaksi, remarks
+                 FROM tbltimbangan
+                 WHERE id_transaksi=%s
+                 ORDER BY id ASC"""
+        cur.execute(cmd, (id_transaksi,))
+        rows = cur.fetchall()
+        out = []
+        for r in rows:
+            out.append({
+                'id': r[0],
+                'tgl': r[1].strftime("%Y-%m-%d") if r[1] else None,
+                'waktu': r[2].strftime("%H:%M:%S") if r[2] else None,
+                'wadah': r[3],
+                'produk': r[4],
+                'berat_kotor': float(r[5]) if r[5] is not None else None,
+                'berat_tare': float(r[6]) if r[6] is not None else None,
+                'berat_nett': float(r[7]) if r[7] is not None else None,
+                'operator': r[8],
+                'supplier': r[9],
+                'driver': r[10],
+                'nopol': r[11],
+                'id_transaksi': r[12],
+                'remarks': r[13]
+            })
+        return jsonify(out)
+    except Exception as e:
+        print("Error fetching riwayat by transaksi:", e)
+        return jsonify([]), 200
+    finally:
+        cur.close()
+        conn.close()
+
+# Close transaksi (set status closed)
+@app.route('/api/transaksi/<id_transaksi>/close', methods=['POST'])
+def api_close_transaksi(id_transaksi):
+    conn = db_connect()
+    if conn is None:
+        return jsonify({'status': 'failure'}), 500
+    cur = conn.cursor()
+    try:
+        cur.execute("UPDATE transaksi SET status='closed' WHERE id_transaksi=%s", (id_transaksi,))
+        conn.commit()
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        print("Error closing transaksi:", e)
+        conn.rollback()
+        return jsonify({'status': 'failure'}), 500
+    finally:
+        cur.close()
+        conn.close()
+@app.put("/api/timbang/<int:id_timbang>/remarks")
+def update_remarks(id_timbang):
+    data = request.get_json()
+    remarks = data['remarks']
+
+    conn = db_connect()
+    cur = conn.cursor()
+
+    cur.execute("UPDATE tbltimbangan SET remarks = %s WHERE id = %s", (remarks, id_timbang))
+
+    conn.commit()
+    cur.close()
+
+    return jsonify({"status": "ok", "id_timbang": id_timbang, "remarks": remarks})
+
+@app.route('/api/riwayat_timbang/', methods=['GET'])
+def api_count_riwayat_timbang():
+    tgl = request.args.get('date')
+    conn = db_connect()
+    if conn is None:
+        return jsonify({'status': 'failure'}), 500
+    cur = conn.cursor()
+    cmd = "SELECT * FROM tbltimbangan WHERE tanggal=%s ORDER BY id ASC"
+    values = (tgl,)
+    try:
+        cur.execute(cmd, values)
+        results = cur.fetchall()
+        count = len(results)
+        print("Jumlah data :", count)
+        return jsonify(count)
+    except Exception as e:
+        print(f"Error fetching riwayat timbang: {e}")
+        return jsonify({'status': 'failure'}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+@app.route('/api/riwayat_timbang/<id_transaksi>', methods=['GET'])
+def api_get_riwayat_timbang(id_transaksi):
+    conn = db_connect()
+    if conn is None:
+        return jsonify({'status': 'failure'}), 500
+    cur = conn.cursor()
+    cmd = "SELECT * FROM tbltimbangan WHERE id_transaksi=%s ORDER BY id ASC"
+    values = (id_transaksi,)
     try:
         cur.execute(cmd, values)
         results = cur.fetchall()

@@ -2,7 +2,7 @@ import serial
 import random
 import time
 
-port = 'COM4'  # Ganti dengan port serial yang sesuai
+port = 'COM2'  # Ganti dengan port serial yang sesuai
 baudrate = 9600
 ser = serial.Serial(port, baudrate, timeout=1)
 def write_serial_data(data):
