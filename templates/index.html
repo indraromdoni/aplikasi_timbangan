@@ -37,6 +37,7 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav ms-auto">
           <li class="nav-item"><a class="nav-link active" href="/">Timbangan</a></li>
+          <li class="nav-item"><a class="nav-link" href="/report">Report</a></li>
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Data Master</a>
             <ul class="dropdown-menu">
@@ -130,9 +131,9 @@
             <div class="row">
               <label>Wadah</label>
               <select id="wadah" name="wadah" class="form-select" required>
-                <option value="pallet">Pallet</option>
-                <option value="jumbo">Jumbo Bag</option>
-                <option value="karung">Karung</option>
+                <option value="10">Pallet</option>
+                <option value="10">Jumbo Bag</option>
+                <option value="5">Karung</option>
               </select>
             </div>
             <div class="row">
@@ -303,7 +304,7 @@
       let tare = parseFloat($("#beratTare").text());
       let gross = parseFloat(msg);
       let nett = gross - tare;
-      $("#beratNett").text(nett.toFixed(2));
+      $("#beratNett").text(nett.toFixed(1));
     });
     
     function fetchDataMaster() {
@@ -383,7 +384,7 @@
 
     function get_alat_ukur() {
       const produk = $('#produk').val();
-      const wadah = $('#wadah').val();
+      const wadah = $('#wadah option:selected').text();
       const w_kotor = $('#beratDisplay').text();
       const w_tare = $('#beratTare').text();
       const w_nett = $('#beratNett').text();
@@ -569,7 +570,7 @@
 
     function logout() {
       $.ajax({
-        type: "POST",
+        type: "GET",
         url: "/api/logout",
         success: function(response) {
           showAlert("Anda telah logout.");

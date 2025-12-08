@@ -11,7 +11,7 @@
         "baudrate": 9600
     },
     "list_serial_ports": [
-        "COM3",
-        "COM4"
+        "COM1",
+        "COM2"
     ]
 }

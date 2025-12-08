@@ -9,6 +9,9 @@ import eventlet
 import datetime
 import time
 import uuid
+import re
+import tkinter as tk
+from tkinter import ttk, messagebox
 
 _exit = False
 _config = {}
@@ -60,12 +63,23 @@ def load_serial():
     global _config
     port = _config['serial_port']['port']
     baudrate = _config['serial_port']['baudrate']
-    ser = serial.Serial(port, baudrate, timeout=1)
-    return ser
+    try:
+        ser = serial.Serial(port, baudrate, timeout=1)
+        return ser
+    except Exception as e:
+        print(f'Error com port :', e)
+        return None
 
 def list_serial_ports():
     ports = list_ports.comports()
     return [port.device for port in ports]
+
+def parse_weight(text):
+    # Regex menangkap: +00123.4, -00012.7, 155.5, -5.0, dll.
+    match = re.search(r'([+-]?\d+\.\d+)\s*Kg', text)
+    if match:
+        return float(match.group(1))
+    return None
 
 def read_serial_data(ser):
     if ser.is_open:
@@ -108,6 +122,12 @@ def home():
     user = session.get('username')
     role = session.get('role')
     return render_template('index.html', user=user, role=role)
+
+@app.route('/report')
+def report():
+    user = session.get('username')
+    role = session.get('role')
+    return render_template('report.html', user=user, role=role)
 
 @app.route('/data_pengguna')
 def operator():
@@ -176,7 +196,7 @@ def api_login():
     else:
         return jsonify({'status': 'failure'}), 401
 
-@app.route('/api/logout', methods=['POST'])
+@app.route('/api/logout', methods=['GET'])
 def api_logout():
     session.pop('username', None)
     session.pop('role', None)
@@ -665,6 +685,55 @@ def api_list_transaksi():
         cur.close()
         conn.close()
 
+@app.route('/api/transaksi/all', methods=['GET'])
+def api_all_transaksi():
+    conn = db_connect()
+    if conn is None:
+        return jsonify([]), 200
+    cur = conn.cursor()
+    try:
+        cmd = "SELECT id_transaksi, supplier, nopol, driver, status, created_at FROM transaksi ORDER BY created_at DESC"
+        cur.execute(cmd)
+        rows = cur.fetchall()
+        out = []
+        for r in rows:
+            out.append({
+                'id_transaksi': r[0],
+                'supplier': r[1],
+                'nopol': r[2],
+                'driver': r[3],
+                'status': r[4],
+                'created_at': r[5].isoformat() if r[5] else None
+            })
+        return jsonify(out)
+    except Exception as e:
+        print("Error listing transaksi:", e)
+        return jsonify([]), 200
+    finally:
+        cur.close()
+        conn.close()
+
+# Delete transaksi by id
+
+@app.route('/api/transaksi/<id_transaksi>', methods=['DELETE'])
+def api_delete_transaksi(id_transaksi):
+    conn = db_connect()
+    if conn is None:
+        return jsonify({'status': 'failure'}), 500
+    cur = conn.cursor()
+    try:
+        cmd = "DELETE FROM transaksi WHERE id_transaksi = %s"
+        cur.execute(cmd, (id_transaksi,))
+        conn.commit()
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        print(f"Error deleting transaksi: {e}")
+        conn.rollback()
+        return jsonify({'status': 'failure'}), 500
+    finally:
+        cur.close()
+        conn.close()
+
 # Get transaksi by id
 @app.route('/api/transaksi/<id_transaksi>', methods=['GET'])
 def api_get_transaksi(id_transaksi):
@@ -796,6 +865,7 @@ def api_close_transaksi(id_transaksi):
     finally:
         cur.close()
         conn.close()
+
 @app.put("/api/timbang/<int:id_timbang>/remarks")
 def update_remarks(id_timbang):
     data = request.get_json()
@@ -811,21 +881,34 @@ def update_remarks(id_timbang):
 
     return jsonify({"status": "ok", "id_timbang": id_timbang, "remarks": remarks})
 
-@app.route('/api/riwayat_timbang/', methods=['GET'])
-def api_count_riwayat_timbang():
-    tgl = request.args.get('date')
+@app.route('/api/riwayat_timbang/<int:id>', methods=['GET'])
+def api_get_data_timbang(id):
     conn = db_connect()
     if conn is None:
         return jsonify({'status': 'failure'}), 500
     cur = conn.cursor()
-    cmd = "SELECT * FROM tbltimbangan WHERE tanggal=%s ORDER BY id ASC"
-    values = (tgl,)
+    cmd = "SELECT * FROM tbltimbangan WHERE id=%s ORDER BY id ASC"
+    values = (id,)
     try:
         cur.execute(cmd, values)
-        results = cur.fetchall()
-        count = len(results)
-        print("Jumlah data :", count)
-        return jsonify(count)
+        r = cur.fetchall()[0]
+        res = {
+            "id": r[0],
+            "tanggal": r[1].isoformat() if r[1] else None,
+            "waktu": r[2].isoformat() if r[2] else None,
+            "wadah": r[3],
+            "produk": r[4],
+            "berat_kotor": float(r[5]),
+            "berat_tare": float(r[6]),
+            "berat_nett": float(r[7]),
+            "operator": r[8],
+            "supplier": r[9],
+            "driver": r[10],
+            "nopol": r[11],
+            "id_transaksi": r[12],
+            "remarks": r[13]
+        }
+        return jsonify(res)
     except Exception as e:
         print(f"Error fetching riwayat timbang: {e}")
         return jsonify({'status': 'failure'}), 500
@@ -833,59 +916,21 @@ def api_count_riwayat_timbang():
         cur.close()
         conn.close()
 
-@app.route('/api/riwayat_timbang/<id_transaksi>', methods=['GET'])
-def api_get_riwayat_timbang(id_transaksi):
+@app.route('/api/riwayat_timbang/<id>', methods=['PUT'])
+def api_update_riwayat_timbang(id):
+    data = request.get_json()
     conn = db_connect()
     if conn is None:
         return jsonify({'status': 'failure'}), 500
     cur = conn.cursor()
-    cmd = "SELECT * FROM tbltimbangan WHERE id_transaksi=%s ORDER BY id ASC"
-    values = (id_transaksi,)
-    try:
-        cur.execute(cmd, values)
-        results = cur.fetchall()
-        riwayat_list = []
-        for row in results:
-            riwayat = {
-                'id': row[0],
-                'tgl': row[1].strftime("%Y-%m-%d"),
-                'waktu': row[2].strftime("%H:%M:%S"),
-                'wadah': row[3],
-                'produk': row[4],
-                'berat_kotor': float(row[5]),
-                'berat_tare': float(row[6]),
-                'berat_nett': float(row[7]),
-                'operator': row[8],
-                'supplier': row[9],
-                'driver': row[10],
-                'nopol': row[11]
-            }
-            riwayat_list.append(riwayat)
-        return jsonify(riwayat_list)
-    except Exception as e:
-        print(f"Error fetching riwayat timbang: {e}")
-        return jsonify({'status': 'failure'}), 500
-    finally:
-        cur.close()
-        conn.close()
-
-@app.route('/api/riwayat_timbang', methods=['POST'])
-def api_add_riwayat_timbang():
-    data = request.json
-    conn = db_connect()
-    if conn is None:
-        return jsonify({'status': 'failure'}), 500
-    cur = conn.cursor()
-    cmd = """INSERT INTO tbltimbangan (nama_wadah, nama_produk, berat_kotor, berat_tare, berat_nett, operator, supplier, driver, nopol) 
-             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
-    values = (data['wadah'], data['produk'], data['berat_kotor'], data['berat_tare'], data['berat_nett'], data['operator'], data['supplier'], data['driver'], data['nopol'])
+    cmd = "UPDATE tbltimbangan SET nama_wadah=%s, nama_produk=%s, berat_kotor=%s, berat_tare=%s, berat_nett=%s WHERE id=%s"
+    values = (data['wadah'], data['produk'], data['berat_kotor'], data['berat_tare'], data['berat_nett'], id)
     try:
         cur.execute(cmd, values)
         conn.commit()
         return jsonify({'status': 'success'})
     except Exception as e:
-        print(f"Error inserting riwayat timbang: {e}")
-        conn.rollback()
+        print(f"Error fetching riwayat timbang: {e}")
         return jsonify({'status': 'failure'}), 500
     finally:
         cur.close()
@@ -926,10 +971,13 @@ def thread_serialread():
     ser = load_serial()
     try:
         while True:
+            if ser == None:
+                print("Silahkan pilih com port")
+                return None
             data = read_serial_data(ser)
             if data:
                 with _thread_lock:
-                    data_serial = data
+                    data_serial = parse_weight(data)
                 print(f"data: {data}")
             else:
                 print("No data received")
@@ -939,7 +987,8 @@ def thread_serialread():
         print("Exiting...")
         print(e)
     finally:
-        ser.close()
+        if ser is not None:
+            ser.close()
         print("Serial thread stopped")
 
 def thread_sendwebsocket():

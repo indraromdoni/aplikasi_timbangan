@@ -36,6 +36,7 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav ms-auto">
           <li class="nav-item"><a class="nav-link" href="/">Timbangan</a></li>
+          <li class="nav-item"><a class="nav-link" href="/report">Report</a></li>
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Data Master</a>
             <ul class="dropdown-menu">
@@ -110,6 +111,7 @@
   </div>
 
   <div class="container">
+    <div id="myAlert" class="alert alert-success fade" role="alert" style="display:none;"></div>
 
     <!-- Konfigurasi Timbangan -->
     <div id="config" class="card p-4 mb-5">
@@ -201,7 +203,7 @@
 
     function logout() {
       $.ajax({
-        type: "POST",
+        type: "GET",
         url: "/api/logout",
         success: function(response) {
           showAlert("Anda telah logout.");
@@ -213,6 +215,29 @@
           showAlert("Logout gagal.", "danger");
         }
       });
+    }
+
+    function showAlert(message, type = 'success') {
+      //console.log('Showing alert:', message, 'Type:', type);
+      const alertDiv = $('#myAlert');
+
+      alertDiv
+        .removeClass('alert-success alert-danger alert-warning alert-info')
+        .addClass(`alert-${type} fade`)  // pastikan ada fade
+        .text(message);
+
+      alertDiv.show();
+
+      // fade-in
+      setTimeout(() => {
+        alertDiv.addClass('show');
+      }, 30);
+
+      // fade-out + hide
+      setTimeout(() => {
+        alertDiv.removeClass('show');
+        setTimeout(() => alertDiv.hide(), 300); // tunggu animasi 300ms
+      }, 3000);
     }
   </script>
 

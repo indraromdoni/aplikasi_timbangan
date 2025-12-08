@@ -36,6 +36,7 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav ms-auto">
           <li class="nav-item"><a class="nav-link" href="/">Timbangan</a></li>
+          <li class="nav-item"><a class="nav-link" href="/report">Report</a></li>
           <li class="nav-item dropdown">
             <a class="nav-link active dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Data Master</a>
             <ul class="dropdown-menu">
@@ -408,7 +409,7 @@
                   item.nama_pic,
                   item.no_kontak,
                   `<button class="btn btn-sm btn-warning" onclick="editData('${item.id}')"><i class="bi bi-pencil"></i></button>
-                   <button class="btn btn-sm btn-danger" onclick="hapusData('${item.id}', '${item.user}')"><i class="bi bi-trash"></i></button>`
+                   <button class="btn btn-sm btn-danger" onclick="hapusData('${item.id}', '${item.nama}')"><i class="bi bi-trash"></i></button>`
                 ]).draw(false);
               });
             });
