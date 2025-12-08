@@ -7,11 +7,8 @@ import json
 import psycopg2
 import eventlet
 import datetime
-import time
 import uuid
 import re
-import tkinter as tk
-from tkinter import ttk, messagebox
 
 _exit = False
 _config = {}
