@@ -13,7 +13,7 @@
     .small { font-size:11px; color:#333; }
   </style>
 </head>
-<body>
+<body onafterprint="myFunction()">
   <div class="header">Hasil Timbang</div>
   <table>
     <tr>
@@ -41,11 +41,17 @@
   <div id="dataTabel"></div>
   <hr>
   <div class="small">Dicetak dari sistem Timbangan</div>
-  <script>window.print();</script>
+  <script>
+    window.print();
+  </script>
 </body>
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+  function myFunction() {
+    window.close();
+  }
+
   const data = {{ data_print | tojson }};
   console.log(data);
 
@@ -57,27 +63,37 @@
   const container = document.getElementById('dataTabel');
   container.innerHTML = "";  
 
-  // START WRAPPER ROW
-  let html = `<div style="display:flex; gap:16px; align-items:flex-start;">`;
+  let html = "";
+  let colCount = 0;
 
-  data.produk.forEach((itemProduk) => {
-      const namaProduk = Object.keys(itemProduk)[0]; 
+  data.produk.forEach((itemProduk, index) => {
+      const namaProduk = Object.keys(itemProduk)[0];
       const daftar = itemProduk[namaProduk];
+      console.log(namaProduk);
+      console.log(daftar);
+
+      // BUKA row baru setiap 6 kolom
+      if (colCount === 0) {
+          html += `<div class="row g-3 mb-2">`;
+      }
 
       html += `
-          <div style="flex:1;">
-              <div style="font-weight:bold; margin-bottom:4px; text-align:center;">${namaProduk}</div>
-              <table border="1" cellpadding="4" cellspacing="0" style="width:100%; font-size:11px;">
-                  <tr style="font-weight:bold; background:#f2f2f2; text-align:center;">
-                      <td>Kotor</td>
-                      <td>Tare</td>
-                      <td>Nett</td>
-                  </tr>
+          <div class="col-3"> 
+              <div class="fw-bold text-center mb-1">${namaProduk}</div>
+              <table class="table table-bordered table-sm" style="font-size:11px;">
+                  <thead class="table-light text-center">
+                      <tr>
+                          <th>Kotor</th>
+                          <th>Tare</th>
+                          <th>Nett</th>
+                      </tr>
+                  </thead>
+                  <tbody>
       `;
 
       daftar.forEach(baris => {
           html += `
-              <tr style="text-align:right;">
+              <tr class="text-end">
                   <td>${baris.berat_kotor}</td>
                   <td>${baris.berat_tare}</td>
                   <td>${baris.berat_nett}</td>
@@ -86,15 +102,25 @@
       });
 
       html += `
+                  </tbody>
               </table>
           </div>
       `;
+
+      colCount++;
+
+      // Jika sudah 6 kolom, tutup row
+      if (colCount === 4) {
+          html += `</div>`;
+          colCount = 0;
+      }
   });
 
-  // CLOSE WRAPPER
-  html += `</div>`;
+  // Jika loop berhenti tapi row belum ditutup
+  if (colCount !== 0) {
+      html += `</div>`;
+  }
 
   container.innerHTML = html;
-
 </script>
 </html>

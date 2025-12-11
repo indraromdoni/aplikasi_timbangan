@@ -134,6 +134,7 @@
 
         <!-- Modal body -->
         <div class="modal-body table-responsive">
+          <button type="button" class="btn btn-primary" id="btnprint"><i class="bi bi-printer"></i> Print</button><br>
           <table id="table-local" class="table table-striped table-bordered w-100"></table>
         </div>
 
@@ -317,6 +318,10 @@
       const tpl = document.getElementById('ModalDataTimbang').cloneNode(true);
       const $tpl = $(tpl);
       $tpl.attr('id', modalID);
+      $tpl.find('#btnprint').on('click', function() {
+        const url = `/print_data/${id_transaksi}`;
+        window.open(url, '_blank');
+      })
       $tpl.find('#table-local').attr('id', tbl);
       $('body').append($tpl);
       $tpl.modal('show');
@@ -324,17 +329,6 @@
         ajax: {
           url: '/api/transaksi/' + id_transaksi + '/timbang', dataSrc: ''
         },
-        dom: 'Blfrtip',
-        buttons: [
-            {
-                text: '<i class="bi bi-printer"></i> Print',
-                className: 'btn btn-primary btn-sm',
-                action: function (e, dt, node, config) {
-                    const url = `/print_data/${id_transaksi}`;
-                    window.open(url, '_blank');
-                }
-            }
-        ],
         pageLength: 10,
         lengthMenu: [5, 10, 25, 50, 100],
         columns: [

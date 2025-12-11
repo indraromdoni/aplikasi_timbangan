@@ -156,41 +156,61 @@ def print_data(id_transaksi):
     if conn is None:
         return jsonify({'status': 'failure'}), 500
     cur = conn.cursor()
+
     cmd_data_transaksi = "SELECT id_transaksi, supplier, nopol, driver FROM transaksi WHERE id_transaksi=%s"
-    cmd_list_produk = "SELECT nama_produk, COUNT(*) AS jumlah FROM tbltimbangan WHERE id_transaksi=%s GROUP BY nama_produk ORDER BY jumlah DESC"
+    cmd_list_produk = """SELECT nama_produk, COUNT(*) AS jumlah 
+                         FROM tbltimbangan 
+                         WHERE id_transaksi=%s 
+                         GROUP BY nama_produk 
+                         ORDER BY jumlah DESC"""
+
     data_out = {}
     data_out['produk'] = []
-    data_timbang = []
+
     try:
+        # --- Data transaksi ---
         cur.execute(cmd_data_transaksi, (id_transaksi,))
         data_transaksi = cur.fetchall()[0]
         colnames = [desc[0] for desc in cur.description]
         data_out.update({col: val for col, val in zip(colnames, data_transaksi)})
+
+        # --- List produk ---
         cur.execute(cmd_list_produk, (id_transaksi,))
         list_produk = cur.fetchall()
-        print(list_produk)
+
         for produk, cnt in list_produk:
-            print(produk)
+            # Reset data timbang per produk!
+            data_timbang = []
+
             cmd_data = """
                 SELECT id, nama_wadah, berat_kotor, berat_tare, berat_nett
                 FROM tbltimbangan
                 WHERE id_transaksi=%s AND nama_produk=%s
-                ORDER BY id;"""
+                ORDER BY id
+            """
             cur.execute(cmd_data, (id_transaksi, produk))
             listdata = cur.fetchall()
-            print(listdata)
-            data = {}
+
             for d in listdata:
-                data['id'] = d[0]
-                data['wadah'] = d[1]
-                data['berat_kotor'] = float(d[2])
-                data['berat_tare'] = float(d[3])
-                data['berat_nett'] = float(d[4])
+                data = {
+                    'id': d[0],
+                    'wadah': d[1],
+                    'berat_kotor': float(d[2]),
+                    'berat_tare': float(d[3]),
+                    'berat_nett': float(d[4])
+                }
                 data_timbang.append(data)
-            data_out['produk'].append({produk: data_timbang})
+
+            # Simpan dalam bentuk: {"nama_produk": [list_data]}
+            data_out['produk'].append({
+                produk: data_timbang
+            })
+
         print(data_out)
+
     except Exception as e:
         print(f'Error fetch print data : {e}')
+
     return render_template('printout.html', data_print=data_out)
 
 @app.route('/config')
@@ -759,7 +779,10 @@ def api_delete_transaksi(id_transaksi):
     cur = conn.cursor()
     try:
         cmd = "DELETE FROM transaksi WHERE id_transaksi = %s"
+        cmd2 = "DELETE FROM tbltimbangan WHERE id_transaksi = %s"
         cur.execute(cmd, (id_transaksi,))
+        conn.commit()
+        cur.execute(cmd2, (id_transaksi,))
         conn.commit()
         return jsonify({'status': 'success'})
     except Exception as e:
