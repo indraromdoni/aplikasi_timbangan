@@ -150,9 +150,48 @@ def supplier():
     role = session.get('role')
     return render_template('formSupplier.html', user=user, role=role)
 
-@app.route('/print_data')
-def print_data():
-    return render_template('printout.html')
+@app.route('/print_data/<id_transaksi>')
+def print_data(id_transaksi):
+    conn = db_connect()
+    if conn is None:
+        return jsonify({'status': 'failure'}), 500
+    cur = conn.cursor()
+    cmd_data_transaksi = "SELECT id_transaksi, supplier, nopol, driver FROM transaksi WHERE id_transaksi=%s"
+    cmd_list_produk = "SELECT nama_produk, COUNT(*) AS jumlah FROM tbltimbangan WHERE id_transaksi=%s GROUP BY nama_produk ORDER BY jumlah DESC"
+    data_out = {}
+    data_out['produk'] = []
+    data_timbang = []
+    try:
+        cur.execute(cmd_data_transaksi, (id_transaksi,))
+        data_transaksi = cur.fetchall()[0]
+        colnames = [desc[0] for desc in cur.description]
+        data_out.update({col: val for col, val in zip(colnames, data_transaksi)})
+        cur.execute(cmd_list_produk, (id_transaksi,))
+        list_produk = cur.fetchall()
+        print(list_produk)
+        for produk, cnt in list_produk:
+            print(produk)
+            cmd_data = """
+                SELECT id, nama_wadah, berat_kotor, berat_tare, berat_nett
+                FROM tbltimbangan
+                WHERE id_transaksi=%s AND nama_produk=%s
+                ORDER BY id;"""
+            cur.execute(cmd_data, (id_transaksi, produk))
+            listdata = cur.fetchall()
+            print(listdata)
+            data = {}
+            for d in listdata:
+                data['id'] = d[0]
+                data['wadah'] = d[1]
+                data['berat_kotor'] = float(d[2])
+                data['berat_tare'] = float(d[3])
+                data['berat_nett'] = float(d[4])
+                data_timbang.append(data)
+            data_out['produk'].append({produk: data_timbang})
+        print(data_out)
+    except Exception as e:
+        print(f'Error fetch print data : {e}')
+    return render_template('printout.html', data_print=data_out)
 
 @app.route('/config')
 def config():

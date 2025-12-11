@@ -176,9 +176,6 @@
         <div class="tab-content" id="transaksiContent">
           <!--Tempat konten tab-->
         </div>
-        <!--div>
-          <table id="tblRiwayat" class="table table-bordered table-hover w-100"></table>
-        </div-->
       </div>
     </div>
   </div>
@@ -533,8 +530,6 @@
           showAlert("Data berhasil dihapus.");
           const date = new Date();
           const shortDate = date.toISOString().split('T')[0]; // "YYYY-MM-DD"
-          tblRiwayat.clear().draw();
-          get_data_timbangan(tblRiwayat, supplier, shortDate);
         },
         error: function() {
           showAlert("Gagal menghapus data.");

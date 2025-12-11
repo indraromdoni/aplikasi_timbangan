@@ -227,6 +227,16 @@
   <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 
+  <!-- DataTables core -->
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+  <!-- Buttons -->
+  <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+
   <!-- Script utama -->
   <script>
     function fetchDataMaster() {
@@ -314,6 +324,17 @@
         ajax: {
           url: '/api/transaksi/' + id_transaksi + '/timbang', dataSrc: ''
         },
+        dom: 'Blfrtip',
+        buttons: [
+            {
+                text: '<i class="bi bi-printer"></i> Print',
+                className: 'btn btn-primary btn-sm',
+                action: function (e, dt, node, config) {
+                    const url = `/print_data/${id_transaksi}`;
+                    window.open(url, '_blank');
+                }
+            }
+        ],
         pageLength: 10,
         lengthMenu: [5, 10, 25, 50, 100],
         columns: [
