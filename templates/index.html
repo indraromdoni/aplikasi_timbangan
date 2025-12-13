@@ -83,11 +83,11 @@
             <div class="row">
               <div class="row">
                 <label>Nama Pengguna</label>
-                <input type="text" name="username" class="form-control" placeholder="Masukan nama pengguna">
+                <input type="text" name="username" class="form-control" placeholder="Masukan nama pengguna" required>
               </div>
               <div class="row">
                 <label>Password</label>
-                <input type="password" name="password" class="form-control" placeholder="Masukan kata sandi">
+                <input type="password" name="password" class="form-control" placeholder="Masukan kata sandi" required>
               </div>
               <div class="row mt-3 gap-2 d-flex justify-content-center">
                 <div class="col">
@@ -211,7 +211,7 @@
               <label>Driver</label>
               <input type="text" name="driver" class="form-control" placeholder="Masukan nama driver" required>
             </div>
-            <div class="col-md-12"><button type="button" id="btnSubmitTransaksi" class="btn btn-success w-100">Simpan</button></div>
+            <div class="col-md-12"><button type="submit" id="btnSubmitTransaksi" class="btn btn-success w-100">Simpan</button></div>
           </form>
 
         </div>
@@ -347,7 +347,7 @@
 
     const modal = new bootstrap.Modal(document.getElementById('ModalTambahData'));
     $('#btnTransaksi').on('click', () => { $('#formTransaksi')[0].reset(); modal.show(); });
-    $('#btnSubmitTransaksi').on('click', () => {
+    $('#formTransaksi').on('submit', () => {
       const f = $('#formTransaksi').serializeArray();
       const payload = {};
       f.forEach(i => payload[i.name] = i.value);
@@ -386,8 +386,16 @@
       const w_tare = $('#beratTare').text();
       const w_nett = $('#beratNett').text();
       const data = {produk, wadah, w_kotor, w_tare, w_nett};
-      console.log(data)
       return data
+    }
+
+    function validateTimbang(data) {
+      console.log(data);
+      if (!data.produk) return "Produk belum dipilih";
+      if (data.wadah === '-- Pilih Wadah --') return "Wadah belum dipilih";
+      if (isNaN(data.w_kotor) || data.w_kotor <= 0) return "Berat kotor tidak valid";
+      if (isNaN(data.w_tare)) return "Berat tare tidak valid";
+      return null;
     }
 
     function addTab(t, makeActive=true) {
@@ -409,15 +417,20 @@
       $content.find('#table-local').attr('id', tableId);
 
       $content.find('.btn-add-weight').on('click', function() {
-        const {produk, wadah, w_kotor, w_tare, w_nett} = get_alat_ukur();
+        const data = get_alat_ukur();
+        const err = validateTimbang(data);
+        if(err) {
+          showAlert(err, 'warning');
+          return
+        }
         saveWeightToTransaksi(
           t.id_transaksi, 
           { 
-            produk: produk, 
-            wadah: wadah, 
-            berat_kotor: parseFloat(w_kotor), 
-            berat_tare: parseFloat(w_tare), 
-            berat_nett: parseFloat(w_nett), 
+            produk: data.produk, 
+            wadah: data.wadah, 
+            berat_kotor: parseFloat(data.w_kotor), 
+            berat_tare: parseFloat(data.w_tare), 
+            berat_nett: parseFloat(data.w_nett), 
             operator: '{{ user }}', 
             supplier: t.supplier, 
             driver: t.driver, 
