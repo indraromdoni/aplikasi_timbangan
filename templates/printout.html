@@ -126,16 +126,28 @@
                   </thead>
                   <tbody>
       `;
+      
+      let totalNett = 0;
 
       daftar.forEach(baris => {
-          html += `
-              <tr class="text-end">
-                  <td>${baris.berat_kotor}</td>
-                  <td>${baris.berat_tare}</td>
-                  <td>${baris.berat_nett}</td>
-              </tr>
-          `;
+        const nett = parseFloat(baris.berat_nett) || 0;
+        totalNett += nett;
+        html += `
+            <tr class="text-end">
+                <td>${baris.berat_kotor}</td>
+                <td>${baris.berat_tare}</td>
+                <td>${baris.berat_nett}</td>
+            </tr>
+        `;
       });
+
+      // Baris TOTAL
+      html += `
+          <tr class="fw-bold text-end table-light">
+              <td colspan="2" class="text-center">TOTAL</td>
+              <td>${totalNett.toFixed(2)}</td>
+          </tr>
+      `;
 
       html += `
                   </tbody>
